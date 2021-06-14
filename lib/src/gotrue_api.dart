@@ -14,11 +14,13 @@ class GoTrueApi with TwilioService {
   String url;
   Map<String, String> headers;
   CookieOptions? cookieOptions;
-  late String twilioAuthyApiKey;
-  String twilioAuthyBaseUrl = 'https://api.authy.com/protected/json';
+  late String _twilioAuthyApiKey;
+  String _twilioAuthyBaseUrl = 'https://api.authy.com/protected/json';
 
   GoTrueApi(this.url, {Map<String, String>? headers, this.cookieOptions})
       : headers = headers ?? {};
+
+  void setTwilioAuthyApiKey(String key) => _twilioAuthyApiKey = key;
 
   /// Creates a new user using their email address.
   Future<GotrueSessionResponse> signUpWithEmail(
@@ -205,7 +207,7 @@ class GoTrueApi with TwilioService {
 
   @override
   Future<GotrueResponse> signInWithTwilio(String phoneNumber) async {
-    final String newUserUrl = '$twilioAuthyBaseUrl/users/new';
+    final String newUserUrl = '$_twilioAuthyBaseUrl/users/new';
     final String countryCode = phoneNumber
         .substring(0, phoneNumber.length - 10)
         .replaceAll(RegExp('[^0-9]'), '');
@@ -215,7 +217,7 @@ class GoTrueApi with TwilioService {
       'country_code': countryCode,
     };
     final FetchOptions options = FetchOptions({
-      'X-Authy-API-Key': twilioAuthyApiKey,
+      'X-Authy-API-Key': _twilioAuthyApiKey,
     });
     final GotrueResponse newUserResponse = await fetch.post(
       newUserUrl,
@@ -225,7 +227,7 @@ class GoTrueApi with TwilioService {
     if (newUserResponse.error == null) {
       final String userAuthyId =
           newUserResponse.rawData['user']['id'].toString();
-      final String sendSmsUrl = '$twilioAuthyBaseUrl/sms/$userAuthyId';
+      final String sendSmsUrl = '$_twilioAuthyBaseUrl/sms/$userAuthyId';
       final GotrueResponse sendSmsResponse = await fetch.get(
         sendSmsUrl,
         options: options,
@@ -248,9 +250,9 @@ class GoTrueApi with TwilioService {
   Future<GotrueSessionResponse> verifySms(
       String smsCode, String authyId, String phoneNumber) async {
     final String smsVerificationUrl =
-        '$twilioAuthyBaseUrl/verify/$smsCode/$authyId';
+        '$_twilioAuthyBaseUrl/verify/$smsCode/$authyId';
     final FetchOptions options = FetchOptions({
-      'X-Authy-API-Key': twilioAuthyApiKey,
+      'X-Authy-API-Key': _twilioAuthyApiKey,
     });
     final GotrueResponse response = await fetch.get(
       smsVerificationUrl,
