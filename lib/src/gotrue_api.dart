@@ -218,6 +218,7 @@ class GoTrueApi with TwilioService {
     };
     final FetchOptions options = FetchOptions({
       'X-Authy-API-Key': _twilioAuthyApiKey,
+      'Content-Type': 'application/x-www-form-urlencoded',
     });
     final GotrueResponse newUserResponse = await fetch.post(
       newUserUrl,
