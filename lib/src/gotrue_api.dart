@@ -214,22 +214,11 @@ class GoTrueApi with TwilioService {
 
   @override
   Future<GotrueResponse> signInWithTwilio(String phoneNumber) async {
-    String baseUrl = 'https://verify.twilio.com/v2/Services/$_serviceSid';
+    final String baseUrl = 'https://verify.twilio.com/v2/Services/$_serviceSid';
     final authn =
-        'Basic ' + base64Encode(utf8.encode('$_accountSid:$_authToken'));
-    String url = '$baseUrl/Verifications';
-    // final FetchOptions options = FetchOptions({
-    //   'Authorization': authn,
-    // });
-    // var response = await fetch.post(
-    //   url,
-    //   {
-    //     'To': phoneNumber,
-    //     'Channel': 'sms',
-    //   },
-    //   options: options,
-    // );
-    var response = await http.post(
+        'Basic ${base64Encode(utf8.encode('$_accountSid:$_authToken'))}';
+    final String url = '$baseUrl/Verifications';
+    final response = await http.post(
       Uri.parse(url),
       body: {
         'To': phoneNumber,
@@ -239,16 +228,17 @@ class GoTrueApi with TwilioService {
         'Authorization': authn,
       },
     );
-    if (response.statusCode == 200) {
+    if (response.statusCode == 200 || response.statusCode == 201) {
       return GotrueResponse(
         rawData: response.body,
       );
-    } else
+    } else {
       return GotrueResponse(
         error: GotrueError(
-          response.body.toString(),
+          jsonDecode(response.body)['message'].toString(),
         ),
       );
+    }
     // final String newUserUrl = '$_twilioAuthyBaseUrl/users/new';
     // final String countryCode = phoneNumber
     //     .substring(0, phoneNumber.length - 10)
@@ -292,24 +282,34 @@ class GoTrueApi with TwilioService {
   @override
   Future<GotrueSessionResponse> verifySms(
       String smsCode, String phoneNumber) async {
-    String baseUrl = 'https://verify.twilio.com/v2/Services/$_serviceSid';
-    var authn =
-        'Basic ' + base64Encode(utf8.encode('$_accountSid:$_authToken'));
-    String url = '$baseUrl/VerificationCheck';
+    final String baseUrl = 'https://verify.twilio.com/v2/Services/$_serviceSid';
+    final authn =
+        'Basic ${base64Encode(utf8.encode('$_accountSid:$_authToken'))}';
+    final String url = '$baseUrl/VerificationCheck';
     final FetchOptions options = FetchOptions({
       'Authorization': authn,
     });
-    var response = await fetch.post(
-      url,
-      {'To': phoneNumber, 'Code': smsCode},
-      options: options,
+    final response = await http.post(
+      Uri.parse(url),
+      body: {
+        'To': phoneNumber,
+        'Code': smsCode,
+      },
+      headers: {
+        'Authorization': authn,
+      },
     );
-    if (response.error == null) {
+    final js = jsonDecode(response.body);
+    if (js['status'] == 'approved') {
       final String email = '$phoneNumber';
       final String password = '$phoneNumber/${DateTime.now()}';
       return signUpWithEmail(email, password);
     } else {
-      return GotrueSessionResponse(error: response.error);
+      return GotrueSessionResponse(
+        error: GotrueError(
+          js['message'].toString(),
+        ),
+      );
     }
   }
 
