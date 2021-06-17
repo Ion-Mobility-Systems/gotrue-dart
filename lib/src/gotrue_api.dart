@@ -1,5 +1,5 @@
 import 'package:gotrue/src/twilio_service.dart';
-
+import 'dart:convert';
 import 'cookie_options.dart';
 import 'fetch.dart';
 import 'fetch_options.dart';
@@ -14,13 +14,19 @@ class GoTrueApi with TwilioService {
   String url;
   Map<String, String> headers;
   CookieOptions? cookieOptions;
-  late String _twilioAuthyApiKey;
+  late String _accountSid, _serviceSid, _authToken;
   String _twilioAuthyBaseUrl = 'https://api.authy.com/protected/json';
 
   GoTrueApi(this.url, {Map<String, String>? headers, this.cookieOptions})
       : headers = headers ?? {};
 
-  void setTwilioAuthyApiKey(String key) => _twilioAuthyApiKey = key;
+  // void setTwilioAuthyApiKey(String key) => _twilioAuthyApiKey = key;
+  void setUpTwilioAuthyApi(
+      String accountSid, String serviceSid, String authToken) {
+    _accountSid = accountSid;
+    _serviceSid = serviceSid;
+    _authToken = authToken;
+  }
 
   /// Creates a new user using their email address.
   Future<GotrueSessionResponse> signUpWithEmail(
@@ -207,64 +213,105 @@ class GoTrueApi with TwilioService {
 
   @override
   Future<GotrueResponse> signInWithTwilio(String phoneNumber) async {
-    final String newUserUrl = '$_twilioAuthyBaseUrl/users/new';
-    final String countryCode = phoneNumber
-        .substring(0, phoneNumber.length - 10)
-        .replaceAll(RegExp('[^0-9]'), '');
-    final String cellphone = phoneNumber.replaceAll(countryCode, '');
-    final Map<String, dynamic> dataToPass = {
-      'cellphone': cellphone,
-      'country_code': countryCode,
-    };
+    String baseUrl = 'https://verify.twilio.com/v2/Services/$_serviceSid';
+    final authn =
+        'Basic ' + base64Encode(utf8.encode('$_accountSid:$_authToken'));
+    String url = '$baseUrl/Verifications';
     final FetchOptions options = FetchOptions({
-      'X-Authy-API-Key': _twilioAuthyApiKey,
-      'Content-Type': 'application/x-www-form-urlencoded',
+      'Authorization': authn,
     });
-    final GotrueResponse newUserResponse = await fetch.post(
-      newUserUrl,
-      dataToPass,
+    var response = await fetch.post(
+      url,
+      {
+        'To': phoneNumber,
+        'Channel': 'sms',
+      },
       options: options,
     );
-    if (newUserResponse.error == null) {
-      final String userAuthyId =
-          newUserResponse.rawData['user']['id'].toString();
-      final String sendSmsUrl = '$_twilioAuthyBaseUrl/sms/$userAuthyId';
-      final GotrueResponse sendSmsResponse = await fetch.get(
-        sendSmsUrl,
-        options: options,
-      );
-      if (sendSmsResponse.error == null) {
-        Map<String, dynamic> responseData =
-            sendSmsResponse.rawData as Map<String, dynamic>;
-        responseData['authy_id'] = userAuthyId;
-        sendSmsResponse.rawData = responseData;
-        return sendSmsResponse;
-      } else {
-        return sendSmsResponse;
-      }
-    } else {
-      return newUserResponse;
-    }
+
+    return response;
+    // final String newUserUrl = '$_twilioAuthyBaseUrl/users/new';
+    // final String countryCode = phoneNumber
+    //     .substring(0, phoneNumber.length - 10)
+    //     .replaceAll(RegExp('[^0-9]'), '');
+    // final String cellphone = phoneNumber.replaceAll(countryCode, '');
+    // final Map<String, dynamic> dataToPass = {
+    //   'cellphone': cellphone,
+    //   'country_code': countryCode,
+    // };
+    // final FetchOptions options = FetchOptions({
+    //   'X-Authy-API-Key': _twilioAuthyApiKey,
+    //   'Content-Type': 'application/x-www-form-urlencoded',
+    // });
+    // final GotrueResponse newUserResponse = await fetch.post(
+    //   newUserUrl,
+    //   dataToPass,
+    //   options: options,
+    // );
+    // if (newUserResponse.error == null) {
+    //   final String userAuthyId =
+    //       newUserResponse.rawData['user']['id'].toString();
+    //   final String sendSmsUrl = '$_twilioAuthyBaseUrl/sms/$userAuthyId';
+    //   final GotrueResponse sendSmsResponse = await fetch.get(
+    //     sendSmsUrl,
+    //     options: options,
+    //   );
+    //   if (sendSmsResponse.error == null) {
+    //     Map<String, dynamic> responseData =
+    //         sendSmsResponse.rawData as Map<String, dynamic>;
+    //     responseData['authy_id'] = userAuthyId;
+    //     sendSmsResponse.rawData = responseData;
+    //     return sendSmsResponse;
+    //   } else {
+    //     return sendSmsResponse;
+    //   }
+    // } else {
+    //   return newUserResponse;
+    // }
   }
 
   @override
   Future<GotrueSessionResponse> verifySms(
-      String smsCode, String authyId, String phoneNumber) async {
-    final String smsVerificationUrl =
-        '$_twilioAuthyBaseUrl/verify/$smsCode/$authyId';
+      String smsCode, String phoneNumber) async {
+    String baseUrl = 'https://verify.twilio.com/v2/Services/$_serviceSid';
+    var authn =
+        'Basic ' + base64Encode(utf8.encode('$_accountSid:$_authToken'));
+    String url = '$baseUrl/VerificationCheck';
     final FetchOptions options = FetchOptions({
-      'X-Authy-API-Key': _twilioAuthyApiKey,
+      'Authorization': authn,
     });
-    final GotrueResponse response = await fetch.get(
-      smsVerificationUrl,
+    var response = await fetch.post(
+      url,
+      {'To': phoneNumber, 'Code': smsCode},
       options: options,
     );
     if (response.error == null) {
-      final String email = '$phoneNumber@ionmobility.asia';
+      final String email = '$phoneNumber';
       final String password = '$phoneNumber/${DateTime.now()}';
       return signUpWithEmail(email, password);
     } else {
       return GotrueSessionResponse(error: response.error);
     }
   }
+
+  // @override
+  // Future<GotrueSessionResponse> verifySms(
+  //     String smsCode, String authyId, String phoneNumber) async {
+  //   final String smsVerificationUrl =
+  //       '$_twilioAuthyBaseUrl/verify/$smsCode/$authyId';
+  //   final FetchOptions options = FetchOptions({
+  //     'X-Authy-API-Key': _twilioAuthyApiKey,
+  //   });
+  //   final GotrueResponse response = await fetch.get(
+  //     smsVerificationUrl,
+  //     options: options,
+  //   );
+  //   if (response.error == null) {
+  //     final String email = '$phoneNumber@ionmobility.asia';
+  //     final String password = '$phoneNumber/${DateTime.now()}';
+  //     return signUpWithEmail(email, password);
+  //   } else {
+  //     return GotrueSessionResponse(error: response.error);
+  //   }
+  // }
 }
