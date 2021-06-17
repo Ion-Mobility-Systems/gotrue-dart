@@ -1,5 +1,6 @@
 import 'package:gotrue/src/twilio_service.dart';
 import 'dart:convert';
+import 'package:http/http.dart' as http;
 import 'cookie_options.dart';
 import 'fetch.dart';
 import 'fetch_options.dart';
@@ -217,19 +218,37 @@ class GoTrueApi with TwilioService {
     final authn =
         'Basic ' + base64Encode(utf8.encode('$_accountSid:$_authToken'));
     String url = '$baseUrl/Verifications';
-    final FetchOptions options = FetchOptions({
-      'Authorization': authn,
-    });
-    var response = await fetch.post(
-      url,
-      {
+    // final FetchOptions options = FetchOptions({
+    //   'Authorization': authn,
+    // });
+    // var response = await fetch.post(
+    //   url,
+    //   {
+    //     'To': phoneNumber,
+    //     'Channel': 'sms',
+    //   },
+    //   options: options,
+    // );
+    var response = await http.post(
+      Uri.parse(url),
+      body: {
         'To': phoneNumber,
         'Channel': 'sms',
       },
-      options: options,
+      headers: {
+        'Authorization': authn,
+      },
     );
-
-    return response;
+    if (response.statusCode == 200) {
+      return GotrueResponse(
+        rawData: response.body,
+      );
+    } else
+      return GotrueResponse(
+        error: GotrueError(
+          response.body.toString(),
+        ),
+      );
     // final String newUserUrl = '$_twilioAuthyBaseUrl/users/new';
     // final String countryCode = phoneNumber
     //     .substring(0, phoneNumber.length - 10)
