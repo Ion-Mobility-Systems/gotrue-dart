@@ -288,9 +288,6 @@ class GoTrueApi with TwilioService {
     final authn =
         'Basic ${base64Encode(utf8.encode('$_accountSid:$_authToken'))}';
     final String url = '$baseUrl/VerificationCheck';
-    final FetchOptions options = FetchOptions({
-      'Authorization': authn,
-    });
     final response = await http.post(
       Uri.parse(url),
       body: {
@@ -313,18 +310,17 @@ class GoTrueApi with TwilioService {
       builder.addRecipient(
         JsonWebKey.fromJson({
           "kty": "oct",
-          "k":
-              "AyM1SysPpbyDfgZld3umj1qzKObwVMkoqQ-EstJQLr_T-1qS0gZH75aKtMN3Yj0iPS4hcgUuTwjAzZr1Z9CAow"
+          "k": "6e1c38d6-ebbf-499c-8c9d-bacdc574e687",
         }),
         algorithm: "HS256",
       );
       final jws = builder.build();
       final accessToken = jws.toCompactSerialization();
       final expiresIn = const Duration(hours: 4).inSeconds;
-      const refreshToken = 'my_refresh_token';
-      const tokenType = 'my_token_type';
+      final refreshToken = jws.toCompactSerialization();
+      const tokenType = 'bearer';
       final url =
-          'http://my-callback-url.com/welcome?access_token=$accessToken&expires_in=$expiresIn&refresh_token=$refreshToken&token_type=$tokenType';
+          'http://localhost:3000?access_token=$accessToken&expires_in=$expiresIn&refresh_token=$refreshToken&token_type=$tokenType';
       final GotrueSessionResponse response =
           await client.getSessionFromUrl(Uri.parse(url));
       return response;
