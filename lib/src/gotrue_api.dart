@@ -1,6 +1,8 @@
+import 'package:gotrue/gotrue.dart';
 import 'package:gotrue/src/twilio_service.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:jose/jose.dart';
 import 'cookie_options.dart';
 import 'fetch.dart';
 import 'fetch_options.dart';
@@ -301,9 +303,31 @@ class GoTrueApi with TwilioService {
     );
     final js = jsonDecode(response.body);
     if (js['status'] == 'approved') {
-      final String email = '$phoneNumber';
-      final String password = '$phoneNumber/${DateTime.now()}';
-      return signUpWithEmail(email, password);
+      final GoTrueClient client = GoTrueClient();
+      final claims = JsonWebTokenClaims.fromJson({
+        "exp": const Duration(hours: 4).inSeconds,
+        "phone_number": phoneNumber,
+      });
+      final builder = JsonWebSignatureBuilder();
+      builder.jsonContent = claims.toJson();
+      builder.addRecipient(
+        JsonWebKey.fromJson({
+          "kty": "oct",
+          "k":
+              "AyM1SysPpbyDfgZld3umj1qzKObwVMkoqQ-EstJQLr_T-1qS0gZH75aKtMN3Yj0iPS4hcgUuTwjAzZr1Z9CAow"
+        }),
+        algorithm: "HS256",
+      );
+      final jws = builder.build();
+      final accessToken = jws.toCompactSerialization();
+      final expiresIn = const Duration(hours: 4).inSeconds;
+      const refreshToken = 'my_refresh_token';
+      const tokenType = 'my_token_type';
+      final url =
+          'http://my-callback-url.com/welcome?access_token=$accessToken&expires_in=$expiresIn&refresh_token=$refreshToken&token_type=$tokenType';
+      final GotrueSessionResponse response =
+          await client.getSessionFromUrl(Uri.parse(url));
+      return response;
     } else {
       return GotrueSessionResponse(
         error: GotrueError(
