@@ -18,7 +18,6 @@ class GoTrueApi with TwilioService {
   Map<String, String> headers;
   CookieOptions? cookieOptions;
   late String _accountSid, _serviceSid, _authToken;
-  String _twilioAuthyBaseUrl = 'https://api.authy.com/protected/json';
 
   GoTrueApi(this.url, {Map<String, String>? headers, this.cookieOptions})
       : headers = headers ?? {};
@@ -60,9 +59,11 @@ class GoTrueApi with TwilioService {
     try {
       final body = {'email': email, 'password': password};
       final options = FetchOptions(headers);
+      print('Url to parse is $url/token?grant_type=password');
       final response = await fetch.post('$url/token?grant_type=password', body,
           options: options);
       if (response.error != null) {
+        print('Error in parsing url');
         return GotrueSessionResponse(error: response.error);
       } else {
         final session =
@@ -70,6 +71,7 @@ class GoTrueApi with TwilioService {
         return GotrueSessionResponse(data: session);
       }
     } catch (e) {
+      print('Error is here');
       return GotrueSessionResponse(error: GotrueError(e.toString()));
     }
   }
@@ -157,14 +159,18 @@ class GoTrueApi with TwilioService {
       final headers = {...this.headers};
       headers['Authorization'] = 'Bearer $jwt';
       final options = FetchOptions(headers);
-      final response = await fetch.get('$url/user', options: options);
+      final response = await fetch.get('https://rimbbmjvdueqegxdnetg.supabase.co/user', options: options);
       if (response.error != null) {
+        print('JWT is $jwt');
+        print('Url is $url/user');
+        print('Error from fetching user URL');
         return GotrueUserResponse(error: response.error);
       } else {
         final user = User.fromJson(response.rawData as Map<String, dynamic>);
         return GotrueUserResponse(user: user);
       }
     } catch (e) {
+      print('Error from getUser function');
       return GotrueUserResponse(error: GotrueError(e.toString()));
     }
   }
@@ -301,6 +307,7 @@ class GoTrueApi with TwilioService {
     final js = jsonDecode(response.body);
     if (js['status'] == 'approved') {
       final GoTrueClient client = GoTrueClient();
+      print('Before creating JWT');
       final claims = JsonWebTokenClaims.fromJson({
         "exp": const Duration(hours: 4).inSeconds,
         "phone_number": phoneNumber,
@@ -314,15 +321,18 @@ class GoTrueApi with TwilioService {
         }),
         algorithm: "HS256",
       );
+      print('JWT is ${builder.build()}');
       final jws = builder.build();
       final accessToken = jws.toCompactSerialization();
       final expiresIn = const Duration(hours: 4).inSeconds;
       final refreshToken = jws.toCompactSerialization();
       const tokenType = 'bearer';
       final url =
-          'http://localhost:3000?access_token=$accessToken&expires_in=$expiresIn&refresh_token=$refreshToken&token_type=$tokenType';
+          'https://rimbbmjvdueqegxdnetg.supabase.co#access_token=$accessToken&expires_in=$expiresIn&refresh_token=$refreshToken&token_type=$tokenType';
+      print('Before getting session from url');
       final GotrueSessionResponse response =
           await client.getSessionFromUrl(Uri.parse(url));
+      print('After getting session from url');
       return response;
     } else {
       return GotrueSessionResponse(

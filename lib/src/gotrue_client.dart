@@ -105,6 +105,7 @@ class GoTrueClient {
   Future<GotrueSessionResponse> getSessionFromUrl(Uri originUrl,
       {bool storeSession = true}) async {
     var url = originUrl;
+    print('Before parsing URL');
     if (originUrl.hasQuery) {
       final decoded = originUrl.toString().replaceAll('#', '&');
       url = Uri.parse(decoded);
@@ -112,7 +113,7 @@ class GoTrueClient {
       final decoded = originUrl.toString().replaceAll('#', '?');
       url = Uri.parse(decoded);
     }
-
+    print('After parsing URL');
     final errorDescription = url.queryParameters['error_description'];
     if (errorDescription != null) {
       return GotrueSessionResponse(error: GotrueError(errorDescription));
@@ -140,9 +141,11 @@ class GoTrueClient {
       return GotrueSessionResponse(
           error: GotrueError('No token_type detected.'));
     }
-
+    print('Before getting user');
     final response = await api.getUser(accessToken);
+    print('After getting user');
     if (response.error != null) {
+      print('Error from getting session from url');
       return GotrueSessionResponse(error: response.error);
     }
 
@@ -155,8 +158,11 @@ class GoTrueClient {
         user: response.user);
 
     if (storeSession == true) {
+      print('Before saving session');
       _saveSession(session);
+      print('After saving session');
       _notifyAllSubscribers(AuthChangeEvent.signedIn);
+      print('After notifying all subscribers');
       final type = url.queryParameters['type'];
       if (type == 'recovery') {
         _notifyAllSubscribers(AuthChangeEvent.passwordRecovery);
